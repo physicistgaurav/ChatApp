@@ -13,6 +13,7 @@ import React, { useState } from "react";
 
 import { authentication } from "../config/firebase";
 import { signInWithEmailAndPassword } from "firebase/auth";
+import { database } from "../config/firebase";
 
 const backImage = require("../assets/login.jpg");
 

@@ -3,16 +3,16 @@ import {
   StyleSheet,
   Text,
   View,
-  Button,
   TextInput,
   Image,
   SafeAreaView,
   TouchableOpacity,
   StatusBar,
-  Alert,
 } from "react-native";
 import { createUserWithEmailAndPassword } from "firebase/auth";
-import { authentication } from "../config/firebase";
+import { getFirestore, doc, setDoc } from "firebase/firestore";
+import { authentication, database, firebase } from "../config/firebase";
+import { collection, addDoc } from "firebase/firestore";
 const backImage = require("../assets/login.jpg");
 
 export default function Signup({ navigation }) {
@@ -22,8 +22,23 @@ export default function Signup({ navigation }) {
   const onHandleSignup = () => {
     if (email !== "" && password !== "") {
       createUserWithEmailAndPassword(authentication, email, password)
-        .then(() => console.log("Signup success"))
-        .catch((err) => Alert.alert("Login error", err.message));
+        .then((result) => {
+          console.log("fghjke", result);
+          console.log("fghjke", result.user.email);
+
+          const userCollection = collection(database, "users");
+          const userData = {
+            email: result.user.email,
+            uid: result.user.uid,
+          };
+
+          addDoc(userCollection, userData)
+            .then(() => console.log("User data added successfully"))
+            .catch((err) => console.error("Error adding user data:", err));
+
+          console.log("Signup success");
+        })
+        .catch((err) => console.log(err));
     }
   };
 

@@ -1,10 +1,5 @@
-import React, {
-  useState,
-  useEffect,
-  useLayoutEffect,
-  useCallback,
-} from "react";
-import { TouchableOpacity, Text } from "react-native";
+import React, { useState, useLayoutEffect, useCallback } from "react";
+import { Text, TouchableOpacity, View, FlatList } from "react-native";
 import { GiftedChat } from "react-native-gifted-chat";
 import {
   collection,
@@ -12,14 +7,21 @@ import {
   orderBy,
   query,
   onSnapshot,
+  where,
+  and,
+  or,
 } from "firebase/firestore";
 import { signOut } from "firebase/auth";
-import { authentication, database } from "../config/firebase";
+import { authentication, database, firebase } from "../config/firebase";
 import { useNavigation } from "@react-navigation/native";
 import { AntDesign } from "@expo/vector-icons";
 import colors from "../colors";
 
-export default function Chat() {
+export default function Chat({ route }) {
+  const { targetEmail } = route.params;
+
+  username = targetEmail.split("@")[0];
+
   const [messages, setMessages] = useState([]);
   const navigation = useNavigation();
 
@@ -31,6 +33,19 @@ export default function Chat() {
 
   useLayoutEffect(() => {
     navigation.setOptions({
+      headerLeft: () => (
+        <TouchableOpacity
+          style={{
+            marginLeft: 10,
+          }}
+          onPress={() => navigation.goBack()}
+        >
+          <AntDesign name="arrowleft" size={24} color={colors.gray} />
+        </TouchableOpacity>
+      ),
+      headerTitle: () => (
+        <Text style={{ fontSize: 18, fontWeight: "bold" }}>{username}</Text>
+      ),
       headerRight: () => (
         <TouchableOpacity
           style={{
@@ -51,18 +66,43 @@ export default function Chat() {
 
   useLayoutEffect(() => {
     const collectionRef = collection(database, "chats");
-    const q = query(collectionRef, orderBy("createdAt", "desc"));
+    // const doQuery = query(collectionRef, orderBy("createdAt", "desc"));
 
-    const unsubscribe = onSnapshot(q, (querySnapshot) => {
-      console.log("querySnapshot unsusbscribe");
-      setMessages(
-        querySnapshot.docs.map((doc) => ({
-          _id: doc.data()._id,
-          createdAt: doc.data().createdAt.toDate(),
-          text: doc.data().text,
-          user: doc.data().user,
-        }))
-      );
+    const dbQuery = query(
+      collection(database, "chats"),
+      orderBy("createdAt", "desc"),
+      where("email", "in", [targetEmail, authentication?.currentUser?.email]),
+      where("targetEmail", "in", [
+        targetEmail,
+        authentication?.currentUser?.email,
+      ])
+
+      // where("email", "in", [targetEmail, firebase.auth().currentUser?.email])
+      // where("targetEmail", "==", targetEmail)
+      // where("targetEmail", "==", "targetEmail")
+
+      // where("targetEmail", "==", targetEmail)
+      // where("email", "==", firebase.auth().currentUser?.email)
+
+      // or(
+      //   where("targetEmail", "==", targetEmail),
+      //   where("email", "==", firebase.auth().currentUser?.email)
+      // )
+    );
+
+    const unsubscribe = onSnapshot(dbQuery, (querySnapshot) => {
+      let _messages = querySnapshot.docs.map((doc) => ({
+        _id: doc.data()._id,
+        createdAt: doc.data().createdAt.toDate(),
+        text: doc.data().text,
+        user: doc.data().user,
+      }));
+
+      _messages = JSON.parse(JSON.stringify(_messages));
+      console.log("total messsages ", _messages.length);
+      GiftedChat.append([], _messages);
+
+      setMessages(_messages);
     });
     return unsubscribe;
   }, []);
@@ -78,15 +118,20 @@ export default function Chat() {
       createdAt,
       text,
       user,
+      email: user.email,
+      targetEmail,
     });
   }, []);
 
+  const renderItem = ({ item }) => (
+    <TouchableOpacity>
+      <View>
+        <Text>{item.text}</Text>
+      </View>
+    </TouchableOpacity>
+  );
+
   return (
-    // <>
-    //   {messages.map(message => (
-    //     <Text key={message._id}>{message.text}</Text>
-    //   ))}
-    // </>
     <GiftedChat
       messages={messages}
       showAvatarForEveryMessage={false}
@@ -101,7 +146,9 @@ export default function Chat() {
       }}
       user={{
         _id: authentication?.currentUser?.email,
-        avatar: "https://i.pravatar.cc/300",
+        email: authentication?.currentUser?.email,
+        avatar:
+          "https://cdn.pixabay.com/photo/2020/07/14/13/07/icon-5404125_1280.png",
       }}
     />
   );
